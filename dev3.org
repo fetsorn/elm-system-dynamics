@@ -254,11 +254,11 @@ view model =
         last =
             List.reverse model
                 |> List.head
-                |> Maybe.withDefault (CrimeRate 0 0 0 )
+                |> Maybe.withDefault (DoublePlot 0 0 0 )
 
         first =
             List.head model
-                |> Maybe.withDefault (CrimeRate 0 0 0 )
+                |> Maybe.withDefault (DoublePlot 0 0 0 )
 
         xScale : ContinuousScale Float
         xScale =
@@ -381,11 +381,11 @@ main =
 -- MODEL
 
 type alias Model =
-    { stocks = Stocks
-    , plots = Plots
-    , parameters = Parameters
-    , times = Times
-    , states = States
+    { stocks : Stocks
+    , plots : Plots
+    , parameters : Parameters
+    , times : Times
+    , states : States
     }
 
 type alias Stocks =
@@ -395,7 +395,7 @@ type alias Stocks =
     , loyalAStock : Float
     , loyalBStock : Float
     , profitAStock : Float
-    , profitBStock
+    , profitBStock : Float
     }
 
 type alias Plots =
@@ -433,37 +433,38 @@ type alias States =
     }
 
 init : () -> ( Model, Cmd Msg )
-       ( { stocks = { potentialStock = 50000
-                    , regularAStock = 0
-                    , regularBStock = 0
-                    , loyalAStock = 0
-                    , loyalBStock = 0
-                    , profitAStock = 0
-                    , profitBStock = 0
-                    }
-         , plots = { visitorsPlot = []
-                   , balanceAPlot = []
-                   , balanceBPlot = []
-                   , netIncomePlot = []
-                   , profitPlot = []
-                   }
-         , parameters = { priceA = 6
-                        , priceB = 6
-                        , adA = 0.002
-                        , adB = 0.002
-                        , storesA = 1
-                        , storesB = 1
-                        }
-         , times = { plotTime = 0
-                   , stockTime = 0
-                   }
-         , states = { paused = True
-                    , autoA = True
-                    , autoB = True
-                    }
-         }
-       , Cmd.none
-       )
+init _ =
+    ( { stocks = { potentialStock = 50000
+                 , regularAStock = 0
+                 , regularBStock = 0
+                 , loyalAStock = 0
+                 , loyalBStock = 0
+                 , profitAStock = 0
+                 , profitBStock = 0
+                 }
+      , plots = { visitorsPlot = []
+                , balanceAPlot = []
+                , balanceBPlot = []
+                , incomePlot = []
+                , profitPlot = []
+                }
+      , parameters = { priceA = 6
+                     , priceB = 6
+                     , adA = 0.002
+                     , adB = 0.002
+                     , storesA = 1
+                     , storesB = 1
+                     }
+      , times = { plotTime = 0
+                , stockTime = 0
+                }
+      , states = { paused = True
+                 , autoA = True
+                 , autoB = True
+                 }
+      }
+    , Cmd.none
+    )
 #+END_SRC
 ** update
 #+BEGIN_SRC elm
@@ -498,14 +499,14 @@ update msg model =
             )
 
         StockTick newTime ->
-            ( { model | times = { plotTime = model.times.plotTime, stockTime = model.times.stockTime + 1 }
-                        stocks = { potentialStock = integral model model.times.stockTime model.stocks.potentialStock potentialFlowSum 0.001
-                                 , regularAStock = integral model model.times.stockTime model.stocks.regularAStock regularAFlowSum 0.001
-                                 , regularBStock = integral model model.times.stockTime model.stocks.regularBStock regularBFlowSum 0.001
-                                 , loyalAStock = integral model model.times.stockTime model.stocks.loyalAStock loyalAFlowSum 0.001
-                                 , loyalBStock = integral model model.times.stockTime model.stocks.loyalBStock loyalBFlowSum 0.001
-                                 , profitAStock = integral model model.times.stockTime model.stocks.profitAStock profitAFlowSum 0.001
-                                 , profitBStock = integral model model.times.stockTime model.stocks.profitBStock profitBFlowSum 0.001
+            ( { model | times = { plotTime = model.times.plotTime, stockTime = model.times.stockTime + 1 },
+                        stocks = { potentialStock = integral model model.stocks.potentialStock potentialFlowSum 0.001
+                                 , regularAStock = integral model model.stocks.regularAStock regularAFlowSum 0.001
+                                 , regularBStock = integral model model.stocks.regularBStock regularBFlowSum 0.001
+                                 , loyalAStock = integral model model.stocks.loyalAStock loyalAFlowSum 0.001
+                                 , loyalBStock = integral model model.stocks.loyalBStock loyalBFlowSum 0.001
+                                 , profitAStock = integral model model.stocks.profitAStock profitAFlowSum 0.001
+                                 , profitBStock = integral model model.stocks.profitBStock profitBFlowSum 0.001
                                  }
               }
             , Cmd.none
@@ -555,7 +556,7 @@ update msg model =
                 newStocks = { oldStocks | profitAStock = model.stocks.profitAStock - singleStoreCost }
             in
                 if model.stocks.profitAStock > singleStoreCost then
-                    ( { model | parameters = newParameters, stock = newStocks }
+                    ( { model | parameters = newParameters, stocks = newStocks }
                     , Cmd.none
                     )
                 else
@@ -571,7 +572,7 @@ update msg model =
                 newStocks = { oldStocks | profitBStock = model.stocks.profitBStock - singleStoreCost }
             in
                 if model.stocks.profitBStock > singleStoreCost then
-                    ( { model | parameters = newParameters, stock = newStocks }
+                    ( { model | parameters = newParameters, stocks = newStocks }
                     , Cmd.none
                     )
                 else
@@ -622,22 +623,22 @@ updateVisitorsPlot model =
 updateBalanceAPlot : Model -> List DoublePlot
 updateBalanceAPlot model =
     List.append model.plots.balanceAPlot [{ time = model.times.plotTime
-                                          , firstLine = revenueAFlow model 0 0 -- model.times.stockTime model.stocks.profitAStock
-                                          , secondLine = costsAFlow model 0 0 -- model.times.stockTime model.stocks.profitAStock
+                                          , firstLine = revenueAFlow model
+                                          , secondLine = costsAFlow model
                                           }]
 
 updateBalanceBPlot : Model -> List DoublePlot
 updateBalanceBPlot model =
     List.append model.plots.balanceBPlot [{ time = model.times.plotTime
-                                          , firstLine = revenueBFlow model 0 0 -- model.times.stockTime model.stocks.profitBStock
-                                          , secondLine = costsBFlow model 0 0 -- model.times.stockTime model.stocks.profitBStock
+                                          , firstLine = revenueBFlow model
+                                          , secondLine = costsBFlow model
                                           }]
 
 updateIncomePlot : Model -> List DoublePlot
 updateIncomePlot model =
     List.append model.plots.incomePlot [{ time = model.times.plotTime
-                                        , firstLine = revenueAFlow model 0 0 - costsAFlow model 0 0
-                                        , secondLine = revenueBFlow model 0 0 - costsBFlow model 0 0
+                                        , firstLine = revenueAFlow model   - costsAFlow model
+                                        , secondLine = revenueBFlow model   - costsBFlow model
                                         }]
 
 updateProfitPlot : Model -> List DoublePlot
@@ -652,15 +653,15 @@ updateProfitPlot model =
 
 potentialFlowSum : Model -> Float
 potentialFlowSum model =
-    (-adAFlow model) + (-adBFlow model) + (capacityLossAFlow model) + (capacityLossBFlow model)
+    -(adAFlow model) + -(adBFlow model) + (capacityLossAFlow model) + (capacityLossBFlow model)
 
 regularAFlowSum : Model -> Float
 regularAFlowSum model =
-    (adAFlow model) + (chooseAFlow model) + (-loyalGainAFlow model) + (-capacityLossAFlow model)
+    (adAFlow model) + (chooseAFlow model) + -(loyalGainAFlow model) + -(capacityLossAFlow model)
 
 regularBFlowSum : Model -> Float
 regularBFlowSum model =
-    (adBFlow model) + (chooseBFlow model) + (-loyalGainBFlow model) + (-capacityLossBFlow model)
+    (adBFlow model) + (chooseBFlow model) + -(loyalGainBFlow model) + -(capacityLossBFlow model)
 
 loyalAFlowSum : Model -> Float
 loyalAFlowSum model =
@@ -672,11 +673,11 @@ loyalBFlowSum model =
 
 profitAFlowSum : Model -> Float
 profitAFlowSum model =
-    (revenueAFlow model) + (-costsAFlow model)
+    (revenueAFlow model) + -(costsAFlow model)
 
 profitBFlowSum : Model -> Float
 profitBFlowSum model =
-    (revenueBFlow model) + (-costsBFlow model)
+    (revenueBFlow model) + -(costsBFlow model)
 
 
 --- FLOWS
@@ -684,15 +685,15 @@ profitBFlowSum model =
 
 adAFlow : Model -> Float
 adAFlow model =
-    adA * model.stocks.potentialStock
+    model.parameters.adA * model.stocks.potentialStock
 
 adBFlow : Model -> Float
 adBFlow model =
-    adB * model.stocks.potentialStock
+    model.parameters.adB * model.stocks.potentialStock
 
 capacityLossAFlow : Model -> Float
 capacityLossAFlow model =
-    if (model.stocks.regularAStock + model.stocks.loyalAStock) > targetVisitorsA then
+    if (model.stocks.regularAStock + model.stocks.loyalAStock) > (targetVisitorsA model) then
         if chooseAFlow model > 0 then
             adAFlow model + chooseAFlow model
         else
@@ -702,7 +703,7 @@ capacityLossAFlow model =
 
 capacityLossBFlow : Model -> Float
 capacityLossBFlow model =
-    if (model.stocks.regularBStock + model.stocks.loyalBStock) > targetVisitorsB then
+    if (model.stocks.regularBStock + model.stocks.loyalBStock) > (targetVisitorsB model) then
         if chooseBFlow model > 0 then
             adBFlow model + chooseBFlow model
         else
@@ -834,7 +835,8 @@ chooseLossFraction = 0.5
 singleStoreCost : Float
 singleStoreCost = 100000
 
-
+ratingLookup : List (Float, Float)
+ratingLookup = [ (0.5, 10), (0.6, 6), (1, 5), (1.5,4), (2,1) ]
 --- LOOKUP
 
 
@@ -878,6 +880,32 @@ lookup list x =
             Tuple.second (Tuple.second tuples)
     in
         interpolate xone yone xtri ytri x
+
+--- INTEGRAL
+
+
+integral : Model -> Float -> (Model -> Float) -> Float -> Float
+integral model y flow step =
+    y + ((1 / 6) * (k1 model flow step + (2 * k2 model flow step) + (2 * k3 model flow step) + k4 model flow step))
+
+k1 : Model -> (Model -> Float) -> Float -> Float
+k1 model flow step =
+    step * flow model
+
+
+k2 : Model -> (Model -> Float) -> Float -> Float
+k2 model flow step =
+    step * flow model
+
+
+k3 : Model -> (Model -> Float) -> Float -> Float
+k3 model flow step =
+    step * flow model
+
+
+k4 : Model -> (Model -> Float) -> Float -> Float
+k4 model flow step =
+    step * flow model
 #+END_SRC
 ** subscriptions
 #+BEGIN_SRC elm
@@ -907,13 +935,13 @@ view model =
                    , html <| ChartAB.view model.plots.profitPlot
                    ]
              , row []
-                   [ controlsA model
-                   , controlsB model
+                   [ (controlsA model)
+                   , (controlsB model)
                    ]
              ]
         )
 
-controlsA : Model -> Html Msg
+controlsA : Model -> Element Msg
 controlsA model =
     row []
         [ column []
@@ -932,7 +960,7 @@ controlsA model =
               ]
         ]
 
-controlsB : Model -> Html Msg
+controlsB : Model -> Element Msg
 controlsB model =
     row []
         [ column []
