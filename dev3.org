@@ -27,7 +27,9 @@
   - [X] loyalAStock ( loyalAFlowSum = +loyalGainAFlow )
   - [X] loyalBStock ( loyalBFlowSum = +loyalGainBFlow )
   - [X] profitAStock ( profitAFlowSum = +revenueAFlow -costsAFlow )
+                     ( if profitAStock > singleStoreCost then profitAStock - singleStoreCost )
   - [X] profitBStock ( profitBFlowSum = +revenueBFlow -costsBFlow )
+                     ( if profitBStock > singleStoreCost then profitBStock - singleStoreCost )
 - Flows
   - [X] adAFlow ( adA * potentialStock )
   - [X] adBFlow ( adB * potentialStock )
@@ -49,9 +51,9 @@
       else
         0
     )
-  - [ ] chooseAFlow
+  - [X] chooseAFlow
     ( ( (relativeRatingA * regularSum) - regularAStock ) * chooseLossFraction )
-  - [ ] chooseBFlow
+  - [X] chooseBFlow
     ( ( (relativeRatingB * regularSum) - regularBStock ) * chooseLossFraction )
   - [X] loyalGainAFlow ( regularAStock * loyalGainFraction )
   - [X] loyalGainBFlow ( regularBStock * loyalGainFraction )
@@ -60,51 +62,48 @@
   - [X] costsAFlow ( adCostA + rentCostA )
   - [X] costsBFlow ( adCostB + rentCostB)
 - variables
-  - [ ] priceA
-  - [ ] priceB
-  - [ ] primeCostA
-  - [ ] primeCostB
+  - [X] adA (min 0.002, 0.002, max 0.004) (min 0.2%, 0.2%, max 0.4%)
+  - [X] adB (min 0.002, 0.002, max 0.004) (min 0.2%, 0.2%, max 0.4%)
+  - [X] priceA (min 2, 6, max 12)
+  - [X] priceB (min 2, 6, max 12)
+  - [X] primeCostA = 0.3 * priceA
+  - [X] primeCostB = 0.3 * priceB
   - [X] marginPerPersonA = priceA - primeCostA
   - [X] marginPerPersonB = priceB - primeCostB
-  - [ ] storesA
-  - [ ] storesB
-  - [ ] singleStoreVisitors
+  - [X] storesA ( if profitAStock > singleStoreCost then storesA + 1)
+  - [X] storesB ( if profitBStock > SingleStoreCost then storesB + 1)
+  - [X] singleStoreVisitors = 1000
   - [X] targetVisitorsA = storesA * singleStoreVisitors
   - [X] targetVisitorsB = storesB * singleStoreVisitors
   - [X] totalVisitorsA = regularAStock + loyalAStock
   - [X] totalVisitorsB = regularBStock + loyalBStock
-  - [ ] loyalGainFraction
-  - [ ] singleAdCostA
-  - [ ] singleAdCostB
+  - [X] loyalGainFraction = 0.001
+  - [X] singleAdCostA = priceA/2
+  - [X] singleAdCostB = priceB/2
   - [X] adCostA = adAFlow * singleAdCostA
   - [X] adCostB = adBFlow * singleAdCostB
-  - [ ] singleRentCost
+  - [X] singleRentCost = 3600
   - [X] rentCostA = storesA * singleRentCost
   - [X] rentCostB = storesB * singleRentCost
   - [X] regularSum = regularAStock + regularBStock
-  - [ ] chooseLossFraction
+  - [X] chooseLossFraction = 0.5
   - [X] relativeRatingA = ratingA / (ratingA + ratingB)
   - [X] relativeRatingB = ratingB / (ratingA + ratingB)
   - [X] ratingA = ratingLookup(relativePriceA)
   - [X] ratingB = ratingLookup(relativePriceB)
   - [X] relativePriceA = priceA / priceB
   - [X] relativePriceB = priceB / priceA
-- lookup
-  - ratingLookup( argument:value )
+  - [X] singleStoreCost = 100000
+- functions
+  - [X] ratingLookup( argument:value )
     0.5:10, 0.6:6, 1:5, 1.5:4, 2:1
-
 * spec
+rewrite DoublePlot with floats
+refactor plots
+* lookup
 :PROPERTIES:
 :header-args: :tangle src/Lookup.elm
 :END:
-separate type alias for parameters
-decide on lookup implementation
-  - list = [ (0.5, 10), (0.6, 6), (1, 5), (1.5,4), (2,1) ]
-  - lookup list x =
-    List.filter (\n -> Tuple.first n > x && Tuple.first n < x+1 ) list
-  - interpolate x1 y1 x3 y3 x2 =
-    y1 + ( ( (x2-x1)*(y3-y1) ) / (x3 - x1) )
-decide on store automation
 #+BEGIN_SRC elm
 module Lookup exposing (..)
 
@@ -120,60 +119,6 @@ interpolate x1 y1 x3 y3 x2 =
         y1
     else
         y1 + ( ( (x2-x1)*(y3-y1) ) / (x3-x1) )
-
-eatTuples : ( (Float, Float), (Float, Float) ) -> Float -> Float
-eatTuples tuples x =
-    let
-        xone =
-            Tuple.first (Tuple.first tuples)
-
-        yone =
-            Tuple.second (Tuple.first tuples)
-
-        xtri =
-            Tuple.first (Tuple.second tuples)
-
-        ytri =
-            Tuple.second (Tuple.second tuples)
-    in
-    interpolate xone yone xtri ytri x
-
-pickLowTuple : List (Float, Float) -> Float -> (Float, Float)
-pickLowTuple list x =
-    case (List.maximum (List.filter (\n -> Tuple.first n <= x) list) ) of
-        Just val ->
-            val
-
-        Nothing ->
-            (0,0)
---    (0,0)
-
-pickHighTuple : List (Float, Float) -> Float -> (Float, Float)
-pickHighTuple list x =
-    case (List.minimum (List.filter (\n -> Tuple.first n >= x) list) ) of
-        Just val ->
-            val
-
-        Nothing ->
-            (0,0)
--- case tail of value value of nothing (0,0)
-
-pickTuples : List (Float, Float) -> Float -> ((Float, Float), (Float, Float))
-pickTuples list x =
-    case ((List.maximum (List.filter (\n -> Tuple.first n <= x) list))
-    ,(List.minimum (List.filter (\n -> Tuple.first n >= x) list))
-    ) of
-        (Just val, Just val1) ->
-            (val, val1)
-
-        (Just val, Nothing) ->
-            (val, val)
-
-        (Nothing, Just val) ->
-            (val, val)
-
-        _ ->
-            ((0,0), (0,0))
 
 lookup : List (Float, Float) -> Float -> Float
 lookup list x =
@@ -239,6 +184,91 @@ main =
 ** model
 #+BEGIN_SRC elm
 -- MODEL
+
+type alias Model =
+    { stocks = Stocks
+    , plots = Plots
+    , parameters = Parameters
+    , times = Times
+    , states = States
+    }
+
+type alias Stocks =
+    { potentialStock : Float
+    , regularAStock : Float
+    , regularBStock : Float
+    , loyalAStock : Float
+    , loyalBStock : Float
+    , profitAStock : Float
+    , profitBStock
+    }
+
+type alias Plots =
+    { visitorsPlot : List DoublePlot
+    , balanceAPlot : List DoublePlot
+    , balanceBPlot : List DoublePlot
+    , netIncomePlot : List DoublePlot
+    , profitPlot : List DoublePlot
+    }
+
+type alias DoublePlot =
+    { time : Int
+    , firstLine : Int
+    , secondLine : Int
+    }
+
+type alias Parameters =
+    { priceA : Float
+    , priceB : Float
+    , adA : Float
+    , adB : Float
+    , storesA : Float
+    , storesB : Float
+    }
+
+type alias Times =
+    { plotTime : Float
+    , stockTime : Float
+    }
+
+type alias States =
+    { paused : Bool
+    , autoA : Bool
+    , autoB : Bool
+    }
+
+init : () -> ( Model, Cmd Msg )
+       ( { stocks = { potentialStock = 50000
+                    , regularAStock = 0
+                    , regularBStock = 0
+                    , loyalAStock = 0
+                    , loyalBStock = 0
+                    , profitAStock = 0
+                    , profitBStock = 0
+                    }
+         , plots = { visitorsPlot = []
+                   , balanceAPlot = []
+                   , balanceBPlot = []
+                   , netIncomePlot = []
+                   , profitPlot = []
+                   }
+         , parameters = { priceA = 6
+                        , priceB = 6
+                        , adA = 0.002
+                        , adB = 0.002
+                        , storesA = 1
+                        , storesB = 1
+                        }
+         , times = { plotTime = 0
+                   , stockTime = 0
+                   }
+         , states = { paused = True
+                    , autoA = True
+                    , autoB = True
+                    }
+         }
+       , Cmd.none
+       )
 #+END_SRC
 ** update
 #+BEGIN_SRC elm
