@@ -1,5 +1,97 @@
 #+TITLE: dev3
-
+* anylogic
+- interface:
+  - plots:
+    - Profit A&B
+    - Visitors A&B
+    - Revenue A Expenses A
+    - Revenue B Expenses B
+    - Net Income A&B
+  - controls:
+    - ad
+    - price
+    - stores
+    - automated stores
+- Stocks
+  - [X] potentialStock ( potentialFlowSum = -adAFlow -adBFlow +capacityLossAFlow +capacityLossBFlow )
+  - [X] regularAStock ( regularAFlowSum =
+                                    +adAFlow
+                                    +chooseAFlow
+                                    -loyalGainAFlow
+                                    -capacityLossAFlow )
+  - [X] regularBStock ( regularBFlowSum =
+                                    +adBFlow
+                                    +chooseBFlow
+                                    -loyalGainBFlow
+                                    -capacityLossBFlow )
+  - [X] loyalAStock ( loyalAFlowSum = +loyalGainAFlow )
+  - [X] loyalBStock ( loyalBFlowSum = +loyalGainBFlow )
+  - [X] profitAStock ( profitAFlowSum = +revenueAFlow -costsAFlow )
+  - [X] profitBStock ( profitBFlowSum = +revenueBFlow -costsBFlow )
+- Flows
+  - [X] adAFlow ( adA * potentialStock )
+  - [X] adBFlow ( adB * potentialStock )
+  - [X] capacityLossAFlow
+    ( if totalVisitorsA > targetVisitorsA then
+        if chooseAFlow > 0 then
+            adAFlow + chooseAFlow
+        else
+            adAFlow
+      else
+        0
+    )
+  - [X] capacityLossBFlow
+    ( if totalVisitorsB > targetVisitorsB then
+        if chooseBFlow > 0 then
+            adBFlow + chooseBFlow
+        else
+            adBFlow
+      else
+        0
+    )
+  - [ ] chooseAFlow
+    ( ( (relativeRatingA * regularSum) - regularAStock ) * chooseLossFraction )
+  - [ ] chooseBFlow
+    ( ( (relativeRatingB * regularSum) - regularBStock ) * chooseLossFraction )
+  - [X] loyalGainAFlow ( regularAStock * loyalGainFraction )
+  - [X] loyalGainBFlow ( regularBStock * loyalGainFraction )
+  - [X] revenueAFlow ( totalVisitorsA * marginPerPersonA )
+  - [X] revenueBFlow ( totalVisitorsB * marginPerPersonB )
+  - [X] costsAFlow ( adCostA + rentCostA )
+  - [X] costsBFlow ( adCostB + rentCostB)
+- variables
+  - [ ] priceA
+  - [ ] priceB
+  - [ ] primeCostA
+  - [ ] primeCostB
+  - [X] marginPerPersonA = priceA - primeCostA
+  - [X] marginPerPersonB = priceB - primeCostB
+  - [ ] storesA
+  - [ ] storesB
+  - [ ] singleStoreVisitors
+  - [X] targetVisitorsA = storesA * singleStoreVisitors
+  - [X] targetVisitorsB = storesB * singleStoreVisitors
+  - [X] totalVisitorsA = regularAStock + loyalAStock
+  - [X] totalVisitorsB = regularBStock + loyalBStock
+  - [ ] loyalGainFraction
+  - [ ] singleAdCostA
+  - [ ] singleAdCostB
+  - [X] adCostA = adAFlow * singleAdCostA
+  - [X] adCostB = adBFlow * singleAdCostB
+  - [ ] singleRentCost
+  - [X] rentCostA = storesA * singleRentCost
+  - [X] rentCostB = storesB * singleRentCost
+  - [X] regularSum = regularAStock + regularBStock
+  - [ ] chooseLossFraction
+  - [X] relativeRatingA = ratingA / (ratingA + ratingB)
+  - [X] relativeRatingB = ratingB / (ratingA + ratingB)
+  - [X] ratingA = ratingLookup(relativePriceA)
+  - [X] ratingB = ratingLookup(relativePriceB)
+  - [X] relativePriceA = priceA / priceB
+  - [X] relativePriceB = priceB / priceA
+- lookup
+* spec
+separate type alias for parameters
 * plots
 ** single line
 ** single area
@@ -19,6 +111,17 @@ module Dev3 exposing (..)
 ** main
 #+BEGIN_SRC elm
 -- MAIN
+main =
+    Browser.element
+        { init = init
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        }
+#+END_SRC
+** model
+#+BEGIN_SRC elm
+-- MODEL
 #+END_SRC
 ** update
 #+BEGIN_SRC elm
