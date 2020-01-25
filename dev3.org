@@ -1,1 +1,30 @@
 #+TITLE: dev3
+
+* plots
+** single line
+** single area
+** double line
+** double area
+* main
+:PROPERTIES:
+:header-args: :tangle src/Dev3.elm
+:END:
+** imports
+#+BEGIN_SRC elm
+
+module Dev3 exposing (..)
+
+
+#+END_SRC
+** main
+#+BEGIN_SRC elm
+-- MAIN
+#+END_SRC
+** update
+#+BEGIN_SRC elm
+-- UPDATE
+#+END_SRC
+** view
+#+BEGIN_SRC elm
+-- VIEW
+#+END_SRC
