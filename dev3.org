@@ -153,191 +153,6 @@ lookup list x =
     in
         interpolate xone yone xtri ytri x
 #+END_SRC
-* plots
-:PROPERTIES:
-:header-args: :tangle src/ChartAB.elm
-:END:
-** double area
-#+BEGIN_SRC elm
-
-module ChartAB exposing (view)
-
-import Axis
-import Color exposing (Color)
-import Path exposing (Path)
-import Scale exposing (ContinuousScale, OrdinalScale)
-import Scale.Color
-import Shape
-import Statistics
-import Time
-import TypedSvg exposing (g, svg, text_)
-import TypedSvg.Attributes exposing (class, dy, fill, fontFamily, stroke, textAnchor, transform, viewBox)
-import TypedSvg.Attributes.InPx exposing (fontSize, height, strokeWidth, x, y)
-import TypedSvg.Core exposing (Svg, text)
-import TypedSvg.Types exposing (AnchorAlignment(..), Fill(..), Transform(..), em)
-
-
--- MAIN
-
--- MODEL
-
-type alias DoublePlot =
-    { time : Float
-    , firstLine : Float
-    , secondLine : Float
-    }
-
--- UPDATE
-
-
--- SUBSCRIPTIONS
-
-
--- VIEW
-
-
-w : Float
-w =
-    900
-
-
-h : Float
-h =
-    450
-
-
-padding : Float
-padding =
-    60
-
-
-series =
-    [ { label = "A"
-      , accessor = .firstLine
-      }
-    , { label = "B"
-      , accessor = .secondLine
-      }
-    ]
-
-
-accessors : List (DoublePlot -> Float)
-accessors =
-    List.map .accessor series
-
-
-values : DoublePlot -> List Float
-values i =
-    List.map (\a -> a i) accessors
-
-
-colorScale : OrdinalScale String Color
-colorScale =
-    List.map .label series
-        |> Scale.ordinal [(Color.rgba 1 0 0 0.3)
-                         ,(Color.rgba 0 1 0 0.3)
-                         ,(Color.rgba 0 0 1 0.3)
-                         ]
-
-
-color : String -> Color
-color =
-    Scale.convert colorScale >> Maybe.withDefault Color.black
-
-
-
-view : List DoublePlot -> Svg msg
-view model =
-    let
-        last =
-            List.reverse model
-                |> List.head
-                |> Maybe.withDefault (DoublePlot 0 0 0 )
-
-        first =
-            List.head model
-                |> Maybe.withDefault (DoublePlot 0 0 0 )
-
-        xScale : ContinuousScale Float
-        xScale =
-            model
-                |> List.map (.time)
-                |> Statistics.extent
-                |> Maybe.withDefault (0,0)
-                |> Scale.linear ( 0, w - 2 * padding )
-
-        yScale : ContinuousScale Float
-        yScale =
-            model
-                |> List.map (values >> List.maximum >> Maybe.withDefault 0)
-                |> List.maximum
-                |> Maybe.withDefault 0
-                |> (\b -> ( 0, b ))
-                |> Scale.linear ( h - 2 * padding, 0 )
-                |> Scale.nice 4
-
-        lineGenerator : ( Float, Float ) -> Maybe ( Float, Float )
-        lineGenerator ( x, y ) =
-            Just ( Scale.convert xScale (x), Scale.convert yScale (y) )
-
-        areaGenerator : ( Float, Float ) -> Maybe ( ( Float, Float ), ( Float, Float ) )
-        areaGenerator ( x, y ) =
-            Just
-                ( ( Scale.convert xScale (x), Tuple.first (Scale.rangeExtent yScale) )
-                , ( Scale.convert xScale (x), Scale.convert yScale (y) )
-                )
-
-        line : (DoublePlot -> Float) -> Path
-        line accessor =
-            List.map (\i -> ( .time i, accessor i )) model
-                |> List.map lineGenerator
-                |> Shape.line Shape.monotoneInXCurve
-
-        area : (DoublePlot -> Float) -> Path
-        area accessor =
-            List.map (\i -> ( .time i, accessor i )) model
-                |> List.map areaGenerator
-                |> Shape.area Shape.monotoneInXCurve
-    in
-    svg [ viewBox 0 0 w h ]
-        [ g [ class [ "tata" ], fontSize 40, fontFamily [ "sans-serif" ], transform [ Translate (padding - 1) (h - padding) ] ]
-            [ Axis.bottom [ Axis.tickCount 3 ] xScale ]
-        , g [ class [ "dada" ], fontSize 40, transform [ Translate (padding - 1) padding ] ]
-            [ Axis.left [ Axis.tickCount 3 ] yScale
-            ]
-        , g [ fontSize 20,  transform [ Translate padding padding ], class [ "series" ] ]
-            (List.map
-                (\{ accessor, label } ->
-                    Path.element (line accessor)
-                        [ stroke (color label)
-                        , strokeWidth 3
-                        , fill FillNone
-                        ]
-                )
-                series
-            )
-        , g [ fontSize 20, transform [ Translate padding padding ], class [ "series" ] ]
-            (List.map
-                (\{ accessor, label } ->
-                    Path.element (area accessor) [ strokeWidth 3, fill <| Fill <| (color label) ]
-                )
-                series
-            )
-        , g [ fontFamily [ "sans-serif" ], fontSize 20 ]
-            (List.map
-                (\{ accessor, label } ->
-                    g
-                        [ transform
-                            [ Translate (w - padding + 10) (padding + Scale.convert yScale (accessor last))
-                            ]
-                        ]
-                        [ text_ [ fill (Fill (color label)) ] [ text label ] ]
-                )
-                series
-            )
-        ]
-
-#+END_SRC
 * code
 :PROPERTIES:
 :header-args: :tangle src/Dev3.elm
@@ -359,8 +174,22 @@ import Time
 import Css exposing (fontSize)
 import Css.Global exposing (class, global)
 import Html.Styled exposing (toUnstyled)
-
-import ChartAB exposing (view)
+import LineChart exposing (Config)
+import LineChart.Colors as Colors
+import LineChart.Junk as Junk
+import LineChart.Area as Area
+import LineChart.Axis as Axis
+import LineChart.Junk as Junk
+import LineChart.Dots as Dots
+import LineChart.Grid as Grid
+import LineChart.Dots as Dots
+import LineChart.Line as Line
+import LineChart.Colors as Colors
+import LineChart.Events as Events
+import LineChart.Legends as Legends
+import LineChart.Container as Container
+import LineChart.Interpolation as Interpolation
+import LineChart.Axis.Intersection as Intersection
 #+END_SRC
 ** main
 #+BEGIN_SRC elm
@@ -396,17 +225,21 @@ type alias Stocks =
     }
 
 type alias Plots =
-    { visitorsPlot : List DoublePlot
-    , balanceAPlot : List DoublePlot
-    , balanceBPlot : List DoublePlot
-    , incomePlot : List DoublePlot
-    , profitPlot : List DoublePlot
+    { visitorsPlot1 : List Point
+    , visitorsPlot2 : List Point
+    , balanceAPlot1 : List Point
+    , balanceAPlot2 : List Point
+    , balanceBPlot1 : List Point
+    , balanceBPlot2 : List Point
+    , incomePlot1 : List Point
+    , incomePlot2 : List Point
+    , profitPlot1 : List Point
+    , profitPlot2 : List Point
     }
 
-type alias DoublePlot =
-    { time : Float
-    , firstLine : Float
-    , secondLine : Float
+type alias Point =
+    { x : Float
+    , y : Float
     }
 
 type alias Parameters =
@@ -439,11 +272,16 @@ init _ =
                  , profitAStock = 0
                  , profitBStock = 0
                  }
-      , plots = { visitorsPlot = []
-                , balanceAPlot = []
-                , balanceBPlot = []
-                , incomePlot = []
-                , profitPlot = []
+      , plots = { visitorsPlot1 = []
+                , visitorsPlot2 = []
+                , balanceAPlot1 = []
+                , balanceAPlot2 = []
+                , balanceBPlot1 = []
+                , balanceBPlot2 = []
+                , incomePlot1 = []
+                , incomePlot2 = []
+                , profitPlot1 = []
+                , profitPlot2 = []
                 }
       , parameters = { priceA = 6
                      , priceB = 6
@@ -485,11 +323,16 @@ update msg model =
     case msg of
         PlotTick newTime ->
             ( { model | times = { plotTime = model.times.plotTime + 1, stockTime = model.times.stockTime },
-                        plots = { visitorsPlot = updateVisitorsPlot model
-                                , balanceAPlot = updateBalanceAPlot model
-                                , balanceBPlot = updateBalanceBPlot model
-                                , incomePlot = updateIncomePlot model
-                                , profitPlot = updateProfitPlot model
+                        plots = { visitorsPlot1 = updateVisitorsPlot1 model
+                                , visitorsPlot2 = updateVisitorsPlot2 model
+                                , balanceAPlot1 = updateBalanceAPlot1 model
+                                , balanceAPlot2 = updateBalanceAPlot2 model
+                                , balanceBPlot1 = updateBalanceBPlot1 model
+                                , balanceBPlot2 = updateBalanceBPlot2 model
+                                , incomePlot1 = updateIncomePlot1 model
+                                , incomePlot2 = updateIncomePlot2 model
+                                , profitPlot1 = updateProfitPlot1 model
+                                , profitPlot2 = updateProfitPlot2 model
                                 }
               }
             , Cmd.none
@@ -497,13 +340,13 @@ update msg model =
 
         StockTick newTime ->
             ( { model | times = { plotTime = model.times.plotTime, stockTime = model.times.stockTime + 1 },
-                        stocks = { potentialStock = integral model model.stocks.potentialStock potentialFlowSum 0.001
-                                 , regularAStock = integral model model.stocks.regularAStock regularAFlowSum 0.001
-                                 , regularBStock = integral model model.stocks.regularBStock regularBFlowSum 0.001
-                                 , loyalAStock = integral model model.stocks.loyalAStock loyalAFlowSum 0.001
-                                 , loyalBStock = integral model model.stocks.loyalBStock loyalBFlowSum 0.001
-                                 , profitAStock = integral model model.stocks.profitAStock profitAFlowSum 0.001
-                                 , profitBStock = integral model model.stocks.profitBStock profitBFlowSum 0.001
+                        stocks = { potentialStock = integral model model.stocks.potentialStock potentialFlowSum 0.01
+                                 , regularAStock = integral model model.stocks.regularAStock regularAFlowSum 0.01
+                                 , regularBStock = integral model model.stocks.regularBStock regularBFlowSum 0.01
+                                 , loyalAStock = integral model model.stocks.loyalAStock loyalAFlowSum 0.01
+                                 , loyalBStock = integral model model.stocks.loyalBStock loyalBFlowSum 0.01
+                                 , profitAStock = integral model model.stocks.profitAStock profitAFlowSum 0.01
+                                 , profitBStock = integral model model.stocks.profitBStock profitBFlowSum 0.01
                                  }
               }
             , Cmd.none
@@ -610,40 +453,46 @@ update msg model =
 --
 --- PLOTS
 
-updateVisitorsPlot : Model -> List DoublePlot
-updateVisitorsPlot model =
-    List.append model.plots.visitorsPlot [{ time = model.times.plotTime
-                                          , firstLine = model.stocks.regularAStock + model.stocks.loyalAStock
-                                          , secondLine = model.stocks.regularBStock + model.stocks.loyalBStock
-                                          }]
+updateVisitorsPlot1 : Model -> List Point
+updateVisitorsPlot1 model =
+    List.append model.plots.visitorsPlot1 [ Point model.times.plotTime (model.stocks.regularAStock + model.stocks.loyalAStock) ]
 
-updateBalanceAPlot : Model -> List DoublePlot
-updateBalanceAPlot model =
-    List.append model.plots.balanceAPlot [{ time = model.times.plotTime
-                                          , firstLine = revenueAFlow model
-                                          , secondLine = costsAFlow model
-                                          }]
+updateVisitorsPlot2 : Model -> List Point
+updateVisitorsPlot2 model =
+    List.append model.plots.visitorsPlot2 [ Point model.times.plotTime (model.stocks.regularBStock + model.stocks.loyalBStock) ]
 
-updateBalanceBPlot : Model -> List DoublePlot
-updateBalanceBPlot model =
-    List.append model.plots.balanceBPlot [{ time = model.times.plotTime
-                                          , firstLine = revenueBFlow model
-                                          , secondLine = costsBFlow model
-                                          }]
+updateBalanceAPlot1 : Model -> List Point
+updateBalanceAPlot1 model =
+    List.append model.plots.balanceAPlot1 [ Point model.times.plotTime (revenueAFlow model) ]
 
-updateIncomePlot : Model -> List DoublePlot
-updateIncomePlot model =
-    List.append model.plots.incomePlot [{ time = model.times.plotTime
-                                        , firstLine = revenueAFlow model   - costsAFlow model
-                                        , secondLine = revenueBFlow model   - costsBFlow model
-                                        }]
+updateBalanceAPlot2 : Model -> List Point
+updateBalanceAPlot2 model =
+    List.append model.plots.balanceAPlot2 [ Point model.times.plotTime (costsAFlow model)]
 
-updateProfitPlot : Model -> List DoublePlot
-updateProfitPlot model =
-    List.append model.plots.profitPlot [{ time = model.times.plotTime
-                                        , firstLine = model.stocks.profitAStock
-                                        , secondLine = model.stocks.profitBStock
-                                        }]
+updateBalanceBPlot1 : Model -> List Point
+updateBalanceBPlot1 model =
+    List.append model.plots.balanceBPlot1 [ Point model.times.plotTime (revenueBFlow model) ]
+
+updateBalanceBPlot2 : Model -> List Point
+updateBalanceBPlot2 model =
+    List.append model.plots.balanceBPlot2 [ Point model.times.plotTime (costsBFlow model) ]
+
+updateIncomePlot1 : Model -> List Point
+updateIncomePlot1 model =
+    List.append model.plots.incomePlot1 [ Point model.times.plotTime (revenueAFlow model - costsAFlow model) ]
+
+updateIncomePlot2 : Model -> List Point
+updateIncomePlot2 model =
+    List.append model.plots.incomePlot2 [ Point model.times.plotTime (revenueBFlow model - costsBFlow model) ]
+
+updateProfitPlot1 : Model -> List Point
+updateProfitPlot1 model =
+    List.append model.plots.profitPlot2 [ Point model.times.plotTime model.stocks.profitAStock ]
+
+updateProfitPlot2 : Model -> List Point
+updateProfitPlot2 model =
+    List.append model.plots.profitPlot2 [ Point model.times.plotTime model.stocks.profitBStock ]
+
 
 --- STOCKS
 
@@ -923,21 +772,120 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     layout []
-        (column []
+        (column [height fill]
              [ row []
-                   [ html <| Html.Styled.toUnstyled (global [Css.Global.class "tick" [ fontSize (Css.px 20)]])
-                   , html <| ChartAB.view model.plots.visitorsPlot
-                   , html <| ChartAB.view model.plots.balanceAPlot
-                   , html <| ChartAB.view model.plots.incomePlot
-                   , html <| ChartAB.view model.plots.balanceBPlot
-                   , html <| ChartAB.view model.plots.profitPlot
+                   [ el [width fill] (html <| visitorsPlot model)
+                   , el [width fill] (html <| balanceAPlot model)
+                   , el [width fill] (html <| incomePlot model)
+                   , el [width fill] (html <| balanceBPlot model)
+                   , el [width fill] (html <| profitPlot model)
                    ]
-             , row []
-                   [ (controlsA model)
-                   , (controlsB model)
+             , row [alignBottom, width fill]
+                   [ el [alignLeft] (controlsA model)
+                   , el [alignRight] (controlsB model)
                    ]
              ]
         )
+
+visitorsPlot : Model -> Html msg
+visitorsPlot model =
+    LineChart.viewCustom visitorsConfig
+        [ LineChart.line Colors.green Dots.none "visitors A" model.plots.visitorsPlot1
+        , LineChart.line Colors.purple Dots.none "visitors B" model.plots.visitorsPlot2
+        ]
+
+visitorsConfig : Config Point msg
+visitorsConfig =
+  { y = Axis.default 400 "weeks" .y
+  , x = Axis.default 700 "People per week" .x
+  , container = Container.responsive "line-chart-1"
+  , interpolation = Interpolation.default
+  , intersection = Intersection.default
+  , legends = Legends.default
+  , events = Events.default
+  , junk = Junk.default
+  , grid = Grid.default
+  , area = Area.default
+  , line = Line.default
+  , dots = Dots.default
+  }
+
+
+balanceAPlot : Model -> Html msg
+balanceAPlot model =
+    LineChart.viewCustom balanceConfig
+        [ LineChart.line Colors.pinkLight Dots.none "revenue A" model.plots.balanceAPlot1
+        , LineChart.line Colors.goldLight Dots.none "expenses A" model.plots.balanceAPlot2
+        ]
+
+balanceBPlot : Model -> Html msg
+balanceBPlot model =
+    LineChart.viewCustom balanceConfig
+        [ LineChart.line Colors.pinkLight Dots.none "revenue B" model.plots.balanceBPlot1
+        , LineChart.line Colors.goldLight Dots.none "expenses B" model.plots.balanceBPlot2
+        ]
+
+balanceConfig : Config Point msg
+balanceConfig =
+  { y = Axis.default 400 "weeks" .y
+  , x = Axis.default 700 "Dollars per week" .x
+  , container = Container.responsive "line-chart-2"
+  , interpolation = Interpolation.default
+  , intersection = Intersection.default
+  , legends = Legends.default
+  , events = Events.default
+  , junk = Junk.default
+  , grid = Grid.default
+  , area = Area.default
+  , line = Line.default
+  , dots = Dots.default
+  }
+
+incomePlot : Model -> Html msg
+incomePlot model =
+    LineChart.viewCustom incomeConfig
+        [ LineChart.line Colors.green Dots.none "net income A" model.plots.incomePlot1
+        , LineChart.line Colors.purple Dots.none "net income B" model.plots.incomePlot2
+        ]
+
+incomeConfig : Config Point msg
+incomeConfig =
+  { y = Axis.default 400 "weeks" .y
+  , x = Axis.default 700 "Dollars per week" .x
+  , container = Container.responsive "line-chart-3"
+  , interpolation = Interpolation.default
+  , intersection = Intersection.default
+  , legends = Legends.default
+  , events = Events.default
+  , junk = Junk.default
+  , grid = Grid.default
+  , area = Area.default
+  , line = Line.default
+  , dots = Dots.default
+  }
+
+profitPlot : Model -> Html msg
+profitPlot model =
+    LineChart.viewCustom profitConfig
+        [ LineChart.line Colors.green Dots.none "net income A" model.plots.profitPlot1
+        , LineChart.line Colors.purple Dots.none "net income B" model.plots.profitPlot2
+        ]
+
+profitConfig : Config Point msg
+profitConfig =
+  { y = Axis.default 400 "weeks" .y
+  , x = Axis.default 700 "Dollars total" .x
+  , container = Container.responsive "line-chart-4"
+  , interpolation = Interpolation.default
+  , intersection = Intersection.default
+  , legends = Legends.default
+  , events = Events.default
+  , junk = Junk.default
+  , grid = Grid.default
+  , area = Area.default
+  , line = Line.default
+  , dots = Dots.default
+  }
 
 controlsA : Model -> Element Msg
 controlsA model =
