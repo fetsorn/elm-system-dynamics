@@ -565,7 +565,8 @@ view model =
     layout []
         (column []
              [ row []
-                   [ html <| ChartAB.view model.plots.visitorsPlot
+                   [ html <| Html.Styled.toUnstyled (global [Css.Global.class "tick" [ fontSize (Css.px 20)]])
+                   , html <| ChartAB.view model.plots.visitorsPlot
                    , html <| ChartAB.view model.plots.balanceAPlot
                    , html <| ChartAB.view model.plots.incomePlot
                    , html <| ChartAB.view model.plots.balanceBPlot

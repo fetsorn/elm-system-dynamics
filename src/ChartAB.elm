@@ -101,7 +101,7 @@ view model =
             model
                 |> List.map (.time)
                 |> Statistics.extent
-                |> Maybe.withDefault ( 1900, 1901 )
+                |> Maybe.withDefault (0,0)
                 |> Scale.linear ( 0, w - 2 * padding )
 
         yScale : ContinuousScale Float
@@ -142,7 +142,6 @@ view model =
             [ Axis.bottom [ Axis.tickCount 3 ] xScale ]
         , g [ class [ "dada" ], fontSize 40, transform [ Translate (padding - 1) padding ] ]
             [ Axis.left [ Axis.tickCount 3 ] yScale
-            , text_ [ fontFamily [ "sans-serif" ], fontSize 15, x 5, y 5 ] [ text "Occurences" ]
             ]
         , g [ fontSize 20,  transform [ Translate padding padding ], class [ "series" ] ]
             (List.map
