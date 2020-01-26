@@ -6,6 +6,7 @@ import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Input as Input
+import Element.Font as Font
 import Html exposing (Html, div)
 import Html.Attributes exposing (style, class)
 import Task
@@ -29,6 +30,12 @@ import LineChart.Legends as Legends
 import LineChart.Container as Container
 import LineChart.Interpolation as Interpolation
 import LineChart.Axis.Intersection as Intersection
+import LineChart.Coordinate as Coordinate
+import LineChart.Axis as Axis
+import LineChart.Axis.Title as Title
+import LineChart.Axis.Range as Range
+import LineChart.Axis.Line as AxisLine
+import LineChart.Axis.Ticks as Ticks
 
 -- MAIN
 main =
@@ -128,7 +135,7 @@ init _ =
       , times = { plotTime = 0
                 , stockTime = 0
                 }
-      , states = { paused = True
+      , states = { paused = False
                  , autoA = True
                  , autoB = True
                  }
@@ -150,40 +157,69 @@ type Msg
     | AutoStoreA Bool
     | AutoStoreB Bool
     | PauseModel Bool
+    | RestartModel
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+
         PlotTick newTime ->
-            ( { model | times = { plotTime = model.times.plotTime + 1, stockTime = model.times.stockTime },
-                        plots = { visitorsPlot1 = updateVisitorsPlot1 model
-                                , visitorsPlot2 = updateVisitorsPlot2 model
-                                , balanceAPlot1 = updateBalanceAPlot1 model
-                                , balanceAPlot2 = updateBalanceAPlot2 model
-                                , balanceBPlot1 = updateBalanceBPlot1 model
-                                , balanceBPlot2 = updateBalanceBPlot2 model
-                                , incomePlot1 = updateIncomePlot1 model
-                                , incomePlot2 = updateIncomePlot2 model
-                                , profitPlot1 = updateProfitPlot1 model
-                                , profitPlot2 = updateProfitPlot2 model
-                                }
-              }
-            , Cmd.none
-            )
+            case model.states.paused of
+
+                False ->
+                    ( { model | times = { plotTime = model.times.plotTime + 1, stockTime = model.times.stockTime },
+                            plots = { visitorsPlot1 = updateVisitorsPlot1 model
+                                    , visitorsPlot2 = updateVisitorsPlot2 model
+                                    , balanceAPlot1 = updateBalanceAPlot1 model
+                                    , balanceAPlot2 = updateBalanceAPlot2 model
+                                    , balanceBPlot1 = updateBalanceBPlot1 model
+                                    , balanceBPlot2 = updateBalanceBPlot2 model
+                                    , incomePlot1 = updateIncomePlot1 model
+                                    , incomePlot2 = updateIncomePlot2 model
+                                    , profitPlot1 = updateProfitPlot1 model
+                                    , profitPlot2 = updateProfitPlot2 model
+                                    }
+                      }
+                    , Cmd.none
+                    )
+
+                True ->
+                    ( model
+                    , Cmd.none
+                    )
 
         StockTick newTime ->
-            ( { model | times = { plotTime = model.times.plotTime, stockTime = model.times.stockTime + 1 },
-                        stocks = { potentialStock = integral model model.stocks.potentialStock potentialFlowSum 0.01
-                                 , regularAStock = integral model model.stocks.regularAStock regularAFlowSum 0.01
-                                 , regularBStock = integral model model.stocks.regularBStock regularBFlowSum 0.01
-                                 , loyalAStock = integral model model.stocks.loyalAStock loyalAFlowSum 0.01
-                                 , loyalBStock = integral model model.stocks.loyalBStock loyalBFlowSum 0.01
-                                 , profitAStock = integral model model.stocks.profitAStock profitAFlowSum 0.01
-                                 , profitBStock = integral model model.stocks.profitBStock profitBFlowSum 0.01
-                                 }
-              }
-            , Cmd.none
-            )
+            case model.states.paused of
+
+                False ->
+                    ( { model | times = { plotTime = model.times.plotTime, stockTime = model.times.stockTime + 1 },
+                            stocks = { potentialStock = integral model model.stocks.potentialStock potentialFlowSum 0.1
+                                     , regularAStock = integral model model.stocks.regularAStock regularAFlowSum 0.1
+                                     , regularBStock = integral model model.stocks.regularBStock regularBFlowSum 0.1
+                                     , loyalAStock = integral model model.stocks.loyalAStock loyalAFlowSum 0.1
+                                     , loyalBStock = integral model model.stocks.loyalBStock loyalBFlowSum 0.1
+                                     , profitAStock = integral model model.stocks.profitAStock profitAFlowSum 0.1
+                                     , profitBStock = integral model model.stocks.profitBStock profitBFlowSum 0.1
+                                     }
+                      }
+                    , Cmd.batch [(if model.states.autoA then
+                                      Task.succeed OpenStoreA
+                                          |> Task.perform identity
+                                  else
+                                      Cmd.none)
+                                ,(if model.states.autoB then
+                                      Task.succeed OpenStoreB
+                                          |> Task.perform identity
+                                  else
+                                      Cmd.none)
+                                ]
+
+                    )
+
+                True ->
+                    ( model
+                    , Cmd.none
+                    )
 
         AdjustAdA newAd ->
             let
@@ -280,6 +316,9 @@ update msg model =
                 , Cmd.none
                 )
 
+        RestartModel ->
+             (init ())
+
 -- FUNCTIONS
 --
 --- PLOTS
@@ -318,7 +357,7 @@ updateIncomePlot2 model =
 
 updateProfitPlot1 : Model -> List Point
 updateProfitPlot1 model =
-    List.append model.plots.profitPlot2 [ Point model.times.plotTime model.stocks.profitAStock ]
+    List.append model.plots.profitPlot1 [ Point model.times.plotTime model.stocks.profitAStock ]
 
 updateProfitPlot2 : Model -> List Point
 updateProfitPlot2 model =
@@ -510,7 +549,7 @@ chooseLossFraction : Float
 chooseLossFraction = 0.5
 
 singleStoreCost : Float
-singleStoreCost = 100000
+singleStoreCost = 50000
 
 ratingLookup : List (Float, Float)
 ratingLookup = [ (0.5, 10), (0.6, 6), (1, 5), (1.5,4), (2,1) ]
@@ -598,7 +637,7 @@ view : Model -> Html Msg
 view model =
     layout []
         (column [height fill]
-             [ row []
+             [ row [padding 10]
                    [ el [width fill] (html <| visitorsPlot model)
                    , el [width fill] (html <| balanceAPlot model)
                    , el [width fill] (html <| incomePlot model)
@@ -606,8 +645,27 @@ view model =
                    , el [width fill] (html <| profitPlot model)
                    ]
              , row [alignBottom, width fill]
-                   [ el [alignLeft] (controlsA model)
-                   , el [alignRight] (controlsB model)
+                   [ el [alignLeft, padding 10] (controlsA model)
+                   , Input.button [] { onPress = Just RestartModel, label = text "Restart" }
+                   , paragraph
+                         [ centerX
+                         , Font.center
+                         , alignBottom
+                         , padding 10
+                         ]
+                         [ text (String.concat [ "Week: "
+                                              , (String.fromFloat model.times.plotTime)
+                                              , "  Round: "
+                                              , (String.fromInt (floor(model.times.plotTime/12)))
+                                              ])
+                         ]
+                   , Input.checkbox [alignRight]
+                           { onChange = PauseModel
+                           , icon = Input.defaultCheckbox
+                           , checked = model.states.paused
+                           , label = Input.labelRight [] (text "pause model")
+                           }
+                   , el [alignRight, padding 10] (controlsB model)
                    ]
              ]
         )
@@ -622,7 +680,7 @@ visitorsPlot model =
 visitorsConfig : Config Point msg
 visitorsConfig =
   { y = Axis.default 400 "weeks" .y
-  , x = Axis.default 700 "People per week" .x
+  , x = visitorsAxisConfig
   , container = Container.responsive "line-chart-1"
   , interpolation = Interpolation.default
   , intersection = Intersection.default
@@ -630,30 +688,40 @@ visitorsConfig =
   , events = Events.default
   , junk = Junk.default
   , grid = Grid.default
-  , area = Area.default
+  , area = Area.normal 0.1
   , line = Line.default
   , dots = Dots.default
   }
 
+visitorsAxisConfig : Axis.Config Point msg
+visitorsAxisConfig =
+    Axis.custom
+        { title = Title.default "People per week"
+        , variable = Just << .x
+        , pixels = 700
+        , range = Range.window 0 120
+        , axisLine = AxisLine.default
+        , ticks = Ticks.int 2
+        }
 
 balanceAPlot : Model -> Html msg
 balanceAPlot model =
     LineChart.viewCustom balanceConfig
-        [ LineChart.line Colors.pinkLight Dots.none "revenue A" model.plots.balanceAPlot1
-        , LineChart.line Colors.goldLight Dots.none "expenses A" model.plots.balanceAPlot2
+        [ LineChart.line Colors.blue Dots.none "revenue A" model.plots.balanceAPlot1
+        , LineChart.line Colors.rust Dots.none "expenses A" model.plots.balanceAPlot2
         ]
 
 balanceBPlot : Model -> Html msg
 balanceBPlot model =
     LineChart.viewCustom balanceConfig
-        [ LineChart.line Colors.pinkLight Dots.none "revenue B" model.plots.balanceBPlot1
-        , LineChart.line Colors.goldLight Dots.none "expenses B" model.plots.balanceBPlot2
+        [ LineChart.line Colors.blue Dots.none "revenue B" model.plots.balanceBPlot1
+        , LineChart.line Colors.rust Dots.none "expenses B" model.plots.balanceBPlot2
         ]
 
 balanceConfig : Config Point msg
 balanceConfig =
   { y = Axis.default 400 "weeks" .y
-  , x = Axis.default 700 "Dollars per week" .x
+  , x = balanceAxisConfig
   , container = Container.responsive "line-chart-2"
   , interpolation = Interpolation.default
   , intersection = Intersection.default
@@ -661,10 +729,21 @@ balanceConfig =
   , events = Events.default
   , junk = Junk.default
   , grid = Grid.default
-  , area = Area.default
+  , area = Area.normal 0.2
   , line = Line.default
   , dots = Dots.default
   }
+
+balanceAxisConfig : Axis.Config Point msg
+balanceAxisConfig =
+    Axis.custom
+        { title = Title.default "Dollars per week"
+        , variable = Just << .x
+        , pixels = 700
+        , range = Range.window 0 120
+        , axisLine = AxisLine.default
+        , ticks = Ticks.int 2
+        }
 
 incomePlot : Model -> Html msg
 incomePlot model =
@@ -676,7 +755,7 @@ incomePlot model =
 incomeConfig : Config Point msg
 incomeConfig =
   { y = Axis.default 400 "weeks" .y
-  , x = Axis.default 700 "Dollars per week" .x
+  , x = incomeAxisConfig
   , container = Container.responsive "line-chart-3"
   , interpolation = Interpolation.default
   , intersection = Intersection.default
@@ -684,22 +763,33 @@ incomeConfig =
   , events = Events.default
   , junk = Junk.default
   , grid = Grid.default
-  , area = Area.default
+  , area = Area.normal 0.1
   , line = Line.default
   , dots = Dots.default
   }
 
+incomeAxisConfig : Axis.Config Point msg
+incomeAxisConfig =
+    Axis.custom
+        { title = Title.default "Dollars per week"
+        , variable = Just << .x
+        , pixels = 700
+        , range = Range.window 0 120
+        , axisLine = AxisLine.default
+        , ticks = Ticks.int 2
+        }
+
 profitPlot : Model -> Html msg
 profitPlot model =
     LineChart.viewCustom profitConfig
-        [ LineChart.line Colors.green Dots.none "net income A" model.plots.profitPlot1
-        , LineChart.line Colors.purple Dots.none "net income B" model.plots.profitPlot2
+        [ LineChart.line Colors.green Dots.none "profit A" model.plots.profitPlot1
+        , LineChart.line Colors.purple Dots.none "profit B" model.plots.profitPlot2
         ]
 
 profitConfig : Config Point msg
 profitConfig =
   { y = Axis.default 400 "weeks" .y
-  , x = Axis.default 700 "Dollars total" .x
+  , x = profitAxisConfig
   , container = Container.responsive "line-chart-4"
   , interpolation = Interpolation.default
   , intersection = Intersection.default
@@ -707,51 +797,66 @@ profitConfig =
   , events = Events.default
   , junk = Junk.default
   , grid = Grid.default
-  , area = Area.default
+  , area = Area.normal 0.1
   , line = Line.default
   , dots = Dots.default
   }
 
+profitAxisConfig : Axis.Config Point msg
+profitAxisConfig =
+    Axis.custom
+        { title = Title.default "Dollars per week"
+        , variable = Just << .x
+        , pixels = 700
+        , range = Range.window 0 120
+        , axisLine = AxisLine.default
+        , ticks = Ticks.int 2
+        }
+
 controlsA : Model -> Element Msg
 controlsA model =
-    row []
-        [ column []
-              [ slider AdjustAdA model.parameters.adA 0.002 0.004
-              , slider AdjustPriceA model.parameters.priceA 2 12
+    row [width (px 400), Font.size 16, Background.color (rgba255 96 173 118 0.2), Border.rounded 10]
+        [ column [alignLeft, width (px 200), padding 10]
+              [ paragraph [Font.center] [text "Ad A"]
+              , sliderFloat AdjustAdA model.parameters.adA 0.002 0.004
+              , paragraph [Font.center] [text "Price A"]
+              , sliderInt AdjustPriceA model.parameters.priceA 2 12
               ]
-        , column []
+        , column [alignRight, spacing 10, padding 10]
               [ Input.checkbox []
                     { onChange = AutoStoreA
                     , icon = Input.defaultCheckbox
                     , checked = model.states.autoA
                     , label = Input.labelRight [] (text "auto stores")
                     }
-              , text (String.fromFloat model.parameters.storesA)
+              , paragraph [Font.center] [text (String.fromFloat model.parameters.storesA)]
               , Input.button [] { onPress = Just OpenStoreA, label = text "Open Store A" }
               ]
         ]
 
 controlsB : Model -> Element Msg
 controlsB model =
-    row []
-        [ column []
-              [ slider AdjustAdB model.parameters.adB 0.002 0.004
-              , slider AdjustPriceB model.parameters.priceB 2 12
+    row [width (px 400), Font.size 15, Background.color (rgba255 173 96 151 0.2), Border.rounded 10]
+        [ column [alignLeft, width (px 200), padding 10]
+              [ paragraph [Font.center] [text "Ad B"]
+              , sliderFloat AdjustAdB model.parameters.adB 0.002 0.004
+              , paragraph [Font.center] [text "Price B"]
+              , sliderInt AdjustPriceB model.parameters.priceB 2 12
               ]
-        , column []
+        , column [alignRight, spacing 10, padding 10]
               [ Input.checkbox []
                     { onChange = AutoStoreB
                     , icon = Input.defaultCheckbox
                     , checked = model.states.autoB
                     , label = Input.labelRight [] (text "auto stores")
                     }
-              , text (String.fromFloat model.parameters.storesB)
+              , paragraph [Font.center] [text (String.fromFloat model.parameters.storesB)]
               , Input.button [] { onPress = Just OpenStoreB, label = text "Open Store B" }
               ]
         ]
 
-slider : (Float -> Msg) -> Float -> Float -> Float -> Element Msg
-slider msg v vmin vmax =
+sliderInt : (Float -> Msg) -> Float -> Float -> Float -> Element Msg
+sliderInt msg v vmin vmax =
     Input.slider
         [ Element.height (Element.px 30)
 
@@ -761,14 +866,42 @@ slider msg v vmin vmax =
                 [ Element.width Element.fill
                 , Element.height (Element.px 2)
                 , Element.centerY
-                , Background.color (rgb 0 0.5 0)
+                , Background.color (rgb255 96 151 173)
                 , Border.rounded 2
                 ]
                 Element.none
             )
         ]
         { onChange = msg
-        , label = Input.labelAbove [] (text (String.fromFloat v))
+        , label = Input.labelAbove [] (text (String.fromInt (floor v)))
+        , min = vmin
+        , max = vmax
+        , step = Nothing
+        , value = v
+        , thumb = Input.defaultThumb
+        }
+
+sliderFloat : (Float -> Msg) -> Float -> Float -> Float -> Element Msg
+sliderFloat msg v vmin vmax =
+    Input.slider
+        [ Element.height (Element.px 30)
+
+        -- Here is where we're creating/styling the "track"
+        , Element.behindContent
+            (Element.el
+                [ Element.width Element.fill
+                , Element.height (Element.px 2)
+                , Element.centerY
+                , Background.color (rgb255 96 151 173)
+                , Border.rounded 2
+                ]
+                Element.none
+            )
+        ]
+        { onChange = msg
+        , label = Input.labelAbove [] (text (String.concat [ (String.fromInt (round(v*1000)))
+                                                           , "%"
+                                                           ]))
         , min = vmin
         , max = vmax
         , step = Nothing
