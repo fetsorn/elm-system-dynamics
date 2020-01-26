@@ -829,8 +829,14 @@ controlsA model =
                     , checked = model.states.autoA
                     , label = Input.labelRight [] (text "auto stores")
                     }
-              , paragraph [Font.center] [text (String.fromFloat model.parameters.storesA)]
-              , Input.button [] { onPress = Just OpenStoreA, label = text "Open Store A" }
+              , paragraph
+                    [ Font.center
+                    , Background.color (rgba255 255 255 255 1)
+                    , width (px 20)
+                    , centerX
+                    , Border.rounded 10]
+                    [ text (String.fromFloat model.parameters.storesA) ]
+              , Input.button [Background.color (rgba 204 240 255 0.5), padding 10] { onPress = Just OpenStoreA, label = text "Open Store A" }
               ]
         ]
 
@@ -850,8 +856,14 @@ controlsB model =
                     , checked = model.states.autoB
                     , label = Input.labelRight [] (text "auto stores")
                     }
-              , paragraph [Font.center] [text (String.fromFloat model.parameters.storesB)]
-              , Input.button [] { onPress = Just OpenStoreB, label = text "Open Store B" }
+              , paragraph
+                    [ Font.center
+                    , Background.color (rgba255 255 255 255 1)
+                    , width (px 20)
+                    , centerX
+                    , Border.rounded 10]
+                    [ text (String.fromFloat model.parameters.storesB) ]
+              , Input.button [Background.color (rgba 204 240 255 0.5), padding 10] { onPress = Just OpenStoreB, label = text "Open Store B" }
               ]
         ]
 
