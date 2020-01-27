@@ -1,0 +1,3 @@
+#+TITLE: Readme
+
+A model of market competition built on system dynamics with Elm.
