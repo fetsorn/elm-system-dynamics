@@ -12,7 +12,7 @@ import TypedSvg exposing (g, svg, text_)
 import TypedSvg.Attributes exposing (class, dy, fill, fontFamily, stroke, textAnchor, transform, viewBox)
 import TypedSvg.Attributes.InPx exposing (fontSize, height, strokeWidth, x, y)
 import TypedSvg.Core exposing (Svg, text)
-import TypedSvg.Types exposing (AnchorAlignment(..), Fill(..), Transform(..), em)
+import TypedSvg.Types exposing (AnchorAlignment(..), Paint(..), Transform(..), em)
 
 
 -- MAIN
@@ -147,9 +147,9 @@ view model =
             (List.map
                 (\{ accessor, label } ->
                     Path.element (line accessor)
-                        [ stroke (color label)
+                        [ stroke <| Paint (color label)
                         , strokeWidth 3
-                        , fill FillNone
+                        , fill PaintNone
                         ]
                 )
                 series
@@ -157,7 +157,7 @@ view model =
         , g [ fontSize 20, transform [ Translate padding padding ], class [ "series" ] ]
             (List.map
                 (\{ accessor, label } ->
-                    Path.element (area accessor) [ strokeWidth 3, fill <| Fill <| (color label) ]
+                    Path.element (area accessor) [ strokeWidth 3, fill <| Paint <| (color label) ]
                 )
                 series
             )
@@ -169,7 +169,7 @@ view model =
                             [ Translate (w - padding + 10) (padding + Scale.convert yScale (accessor last))
                             ]
                         ]
-                        [ text_ [ fill (Fill (color label)) ] [ text label ] ]
+                        [ text_ [ fill (Paint (color label)) ] [ text label ] ]
                 )
                 series
             )
