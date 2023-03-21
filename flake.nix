@@ -25,7 +25,6 @@
       defaultSystems = [ "x86_64-linux" "aarch64-darwin" ];
     in eachSystem defaultSystems (system:
       let
-        system = "aarch64-darwin";
         pkgs = import nixpkgs {
           overlays = [ mkElmDerivation.overlay.${system} ];
           inherit system;
