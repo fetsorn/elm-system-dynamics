@@ -1,4 +1,4 @@
-module Dev3 exposing (..)
+module Main exposing (..)
 
 import Browser
 
@@ -632,16 +632,17 @@ subscriptions model =
 
 -- VIEW
 
-
 view : Model -> Html Msg
 view model =
     layout []
         (column [height fill]
-             [ row [padding 10]
+             [ wrappedRow [ width fill ]
                    [ el [width fill] (html <| visitorsPlot model)
                    , el [width fill] (html <| balanceAPlot model)
-                   , el [width fill] (html <| incomePlot model)
                    , el [width fill] (html <| balanceBPlot model)
+                   ]
+             , wrappedRow [ width fill ]
+                   [ el [width fill] (html <| incomePlot model)
                    , el [width fill] (html <| profitPlot model)
                    ]
              , row [alignBottom, width fill]
